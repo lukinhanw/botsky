@@ -29,7 +29,7 @@ async function fetchBlueskyPosts() {
 
 async function postToInstagram(imageUrl, caption) {
     try {
-        // Etapa 1: Criar um contêiner de mídia
+        // Etapa 1: Criar um contêiner de mídiag
         const mediaObjectResponse = await axios.post(
             `https://graph.facebook.com/v17.0/17841401063551163/media`,
             {
