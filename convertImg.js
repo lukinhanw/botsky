@@ -30,33 +30,70 @@ async function downloadImage(url) {
 // Função para combinar duas imagens lado a lado
 async function combineImages(imageUrl1, imageUrl2) {
     try {
+        // Função para baixar a imagem
+        async function downloadImage(url) {
+            const response = await axios({
+                url,
+                responseType: 'arraybuffer'
+            });
+            return Buffer.from(response.data, 'binary');
+        }
+
         // Baixar as imagens
         const imageBuffer1 = await downloadImage(imageUrl1);
         const imageBuffer2 = await downloadImage(imageUrl2);
 
-        // Redimensionar as imagens sem alterar o formato original
-        const resizedImage1 = await sharp(imageBuffer1)
-            .resize(600, 400)
-            .toBuffer();
-        const resizedImage2 = await sharp(imageBuffer2)
-            .resize(600, 400)
-            .toBuffer();
+        // Função para redimensionar a imagem mantendo a proporção e adicionando bordas brancas
+        async function resizeAndPad(imageBuffer, size) {
+            const image = sharp(imageBuffer);
+            const metadata = await image.metadata();
+            const aspectRatio = metadata.width / metadata.height;
 
-        // Combinar as imagens
-        const combinedImage = await sharp({
+            let width, height;
+            if (aspectRatio > 1) {
+                // Imagem mais larga do que alta
+                width = size;
+                height = Math.round(size / aspectRatio);
+            } else {
+                // Imagem mais alta ou quadrada
+                width = Math.round(size * aspectRatio);
+                height = size;
+            }
+
+            // Redimensiona e adiciona bordas brancas para manter o formato quadrado
+            return image
+                .resize(width, height)
+                .extend({
+                    top: Math.floor((size - height) / 2),
+                    bottom: Math.ceil((size - height) / 2),
+                    left: Math.floor((size - width) / 2),
+                    right: Math.ceil((size - width) / 2),
+                    background: { r: 255, g: 255, b: 255, alpha: 1 } // Borda branca
+                })
+                .toBuffer();
+        }
+
+        // Redimensionar e adicionar bordas para as imagens (quadrado de 800x800)
+        const resizedImage1 = await resizeAndPad(imageBuffer1, 800);
+        const resizedImage2 = await resizeAndPad(imageBuffer2, 800);
+
+        // Combinar as imagens uma embaixo da outra (800x1600 no total)
+        await sharp({
             create: {
-                width: 1200,
-                height: 400,
+                width: 800,
+                height: 1600, // Altura total (2x 800px)
                 channels: 4,
-                background: { r: 255, g: 255, b: 255, alpha: 0 }
+                background: { r: 255, g: 255, b: 255, alpha: 1 } // Fundo branco
             }
         })
             .composite([
                 { input: resizedImage1, top: 0, left: 0 },
-                { input: resizedImage2, top: 0, left: 600 }
+                { input: resizedImage2, top: 800, left: 0 } // Segunda imagem começa a partir de 800px de altura
             ])
             .png() // Especifica o formato de saída
             .toFile('combined-image.png');
+
+        console.log('Imagem combinada criada com sucesso: combined-image.png');
 
     } catch (error) {
         console.error('Erro ao combinar imagens:', error.message);
